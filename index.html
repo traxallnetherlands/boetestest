@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boete Scanner (OCR)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 30px auto; padding: 20px; line-height: 1.6; }
+        .upload-zone { border: 2px dashed #ccc; padding: 30px; text-align: center; background: #f9f9f9; cursor: pointer; }
+        .file-result { border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 5px; background: #fff; }
+        .status { font-weight: bold; color: #666; }
+        .match { background-color: #e6f4ea; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+
+    <h2>Boete PDF Scanner</h2>
+    <p>Selecteer of sleep één of meerdere PDF-bestanden om ze te scannen op kentekens en aanslagnummers.</p>
+
+    <div class="upload-zone" id="dropzone">
+        <input type="file" id="fileInput" multiple accept="application/pdf" style="display:none;">
+        <p>Klik hier of sleep PDF-bestanden om te uploaden</p>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        // PDF.js worker instellen
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const resultsDiv = document.getElementById('results');
+
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.style.borderColor = '#333'; });
+        dropzone.addEventListener('dragleave', () => dropzone.style.borderColor = '#ccc');
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = '#ccc';
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        async function handleFiles(files) {
+            for (let file of files) {
+                if (file.type !== "application/pdf") continue;
+
+                // Maak een container voor de resultaten van dit bestand
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'file-result';
+                fileDiv.innerHTML = `<h3>📄 ${file.name}</h3><p class="status">Bestand verwerken...</p>`;
+                resultsDiv.insertBefore(fileDiv, resultsDiv.firstChild);
+
+                try {
+                    const text = await extractTextFromPdf(file, fileDiv.querySelector('.status'));
+                    findData(text, fileDiv);
+                } catch (error) {
+                    fileDiv.querySelector('.status').innerHTML = `<span class="error">Fout bij verwerken: ${error.message}
